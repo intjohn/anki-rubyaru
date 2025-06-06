@@ -1,0 +1,4 @@
+{
+  "source_fields": "Expression,Word",
+  "destination_field": "rubyaru"
+}
