@@ -1,6 +1,15 @@
 from aqt import mw, gui_hooks
-from anki.notes import Note
+from aqt.browser import Browser
+from aqt.operations import CollectionOp
+from aqt.qt import QAction, qconnect
+from aqt.utils import showInfo
+from anki.collection import Collection, OpChanges
+from anki.notes import Note, NoteId
+from anki import hooks
+from collections.abc import Sequence
 import re
+
+ADDON_NAME = "Rubyaru"
 
 # Exactly the same regex as Anki's furigana field filter
 ANKI_FURIGANA_RE = r" ?([^ >]+?)\[(.+?)\]"
@@ -33,9 +42,9 @@ def detect_anki_ruby_annotation(text: str) -> bool:
     '''
     return re.search(ANKI_FURIGANA_RE, text) is not None
 
-def handle_unfocus(note: Note, field_idx: int) -> bool:
+def update_note(note: Note) -> bool:
     '''
-    Handles the unfocus event for the given note and field index.
+    Updates the destination field of the given note.
     Returns True if the destination field was updated, otherwise returns False.
     '''
 
@@ -46,40 +55,24 @@ def handle_unfocus(note: Note, field_idx: int) -> bool:
     if len(source_fields) == 0:
         # source fields are not configured, do nothing
         return False
+    
+    res = False
+    
+    for field_name in source_fields:
+        if field_name in note and note[field_name]:
+            res |= detect_anki_ruby_annotation(note[field_name])
 
-    source_content = None
-
-    if note.keys()[field_idx] in source_fields:
-        source_content = note.fields[field_idx]
+    if res:
+        if note[destination_field] != RUBY_ARU_VALUE:
+            note[destination_field] = RUBY_ARU_VALUE
+            return True
         
-    if source_content is None:
-        # It's not a source field being unfocused, do nothing
         return False
     
-    if not source_content:
-        # source field is empty
-        if not note[destination_field]:
-            # destination field is also empty, do nothing
-            return False
-        
-        # destination field is not empty, clear it
+    if note[destination_field] != "":
         note[destination_field] = ""
         return True
     
-    if detect_anki_ruby_annotation(source_content):
-        # Ruby annotation is present, set the destination field to RUBY_ARU_VALUE
-        if note[destination_field] == RUBY_ARU_VALUE:
-            # destination field is already set, do nothing
-            return False
-        
-        note[destination_field] = RUBY_ARU_VALUE
-        return True
-    
-    if note[destination_field]:
-        # Ruby annotation is not present but destination field is not empty, clear it
-        note[destination_field] = ""
-        return True
-
     return False
 
 def on_field_unfocus(flag: bool, note: Note, current_field_idx: int) -> bool:
@@ -87,7 +80,61 @@ def on_field_unfocus(flag: bool, note: Note, current_field_idx: int) -> bool:
     Handles the unfocus event for the given note and field index.
     Returns True if the destination field was updated, otherwise returns the original flag.
     '''
-    return True if handle_unfocus(note, current_field_idx) else flag
+    if note.keys()[current_field_idx] in source_fields:
+        return update_note(note) or flag
+    
+    return flag
 
-# Register the hook
+def on_note_will_add(_col: Collection, note: Note, _deck_id: int) -> None:
+    '''
+    Handles the note will add event.
+    '''
+    update_note(note)
+
+def update_notes_op(col: Collection, notes: Sequence[Note]) -> OpChanges:
+    '''
+    Update the given notes with undo entry.
+    '''
+    pos = col.add_custom_undo_entry(f"{ADDON_NAME}: Update {len(notes)} notes.")
+    changed = []
+
+    for note in notes:
+        if update_note(note):
+            changed.append(note)
+
+    col.update_notes(changed)
+
+    return col.merge_undo_entries(pos)
+
+def bulk_update_notes(noteIds: Sequence[NoteId], parent: Browser) -> None:
+    '''
+    Bulk update in background.
+    '''
+    CollectionOp(
+        parent=parent,
+        op=lambda col: update_notes_op(col, notes=[mw.col.get_note(noteId) for noteId in noteIds]),
+    ).success(
+        lambda _out: showInfo(
+            text=f"Processed {len(noteIds)} notes.",
+            parent=parent,
+            title=f"{ADDON_NAME}: Bulk update done",
+            textFormat="rich",
+        )
+    ).run_in_background()
+
+def on_browser_menus_init(browser: Browser) -> None:
+    '''
+    Adds a menu item to bulk update the ruby annotation detection result for selected notes.
+    '''
+    action = QAction(text=f"{ADDON_NAME}: Bulk update", parent=browser)
+    qconnect(action.triggered, lambda: bulk_update_notes(browser.selectedNotes(), parent=browser))
+    browser.form.menuEdit.addAction(action)
+
+# Register hanlder for editor unfocus event
 gui_hooks.editor_did_unfocus_field.append(on_field_unfocus)
+
+# Register hanlder for note will add event
+hooks.note_will_be_added.append(on_note_will_add)
+
+# Register hanlder for browser menus init event
+gui_hooks.browser_menus_did_init.append(on_browser_menus_init)
