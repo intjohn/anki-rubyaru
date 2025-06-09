@@ -1,37 +1,65 @@
-# Kana Detection Add-on for Anki
+# Rubyaru - Ruby Annotation Detection for Anki
 
-This Anki add-on automatically detects kana annotations in Ruby syntax when adding new notes and extracts the kanji part into a separate field.
+This Anki add-on automatically detects ruby annotations (furigana) in specified fields and marks their presence in a destination field. This can be useful for filtering cards based on whether they contain ruby annotations.
 
-## Installation
+## Features
 
-1. Download the add-on files
-2. Place them in your Anki addons folder (usually `~/Documents/Anki2/addons21/kanjionly_filter/`)
-3. Restart Anki
+- Detects Anki's ruby annotation syntax (e.g., `漢字[かんじ]`)
+- Monitors multiple source fields for ruby annotations
+- Updates a destination field with "yes" when ruby annotations are found
+- Works in real-time while editing
+- Includes bulk update functionality in the card browser
 
-## Usage
+## Configuration
 
-1. Make sure your note type has a field named `haskana`
-2. When adding new notes, the add-on will:
-   - Check the first field for Ruby syntax annotations
-   - If kana annotations are found, extract the kanji part and non-annotated text
-   - Store the result in the `haskana` field
+The add-on can be configured through Anki's add-on configuration. Here's what you can configure:
 
-### Examples:
+```json
+{
+    "source_fields": ["Reading", "Expression"],
+    "destination_field": "hasruby"
+}
+```
 
-- If your first field contains: `多[た]分[ぶん]`
-  - `haskana` field will contain: `多分`
-  
-- If your first field contains: `たぶん` or `多分` (without Ruby)
-  - `haskana` field will be empty
+- `source_fields`: Can be either a comma-separated string or a list of field names to monitor
+- `destination_field`: The field name where the detection result will be stored
 
-- If your first field contains: `今日[きょう]はたぶんいい天気[てんき]です`
-  - `haskana` field will contain: `今日はたぶんいい天気です`
+## How it Works
+
+1. When editing a note:
+   - The add-on monitors only if the note contains the configured destination field.
+   - When you finish editing a field (by tabbing out or clicking elsewhere) listed in the configured source fields, detection is performed.
+   - When detection is performed, all the fields included in the configured source fields are scanned to find ruby annotation.
+   - If no ruby annotations are found, clears the destination field, otherwise it's filled with value "yes".
+
+2. When adding new notes:
+   - The add-on automatically processes a note only if the note contains the configured destination field.
+   - Checks for ruby annotations before the note is added
+   - Updates the destination field accordingly
+
+3. Bulk updating:
+   - In the card browser, select the notes you want to update
+   - Go to Edit menu and click "Rubyaru: Bulk update"
+   - The add-on will process all selected notes in the background
+
+## Examples
+
+If your source field contains:
+- `漢字[かんじ]` → destination field will be set to "yes"
+- `漢字` → destination field will be cleared
+- `今日[きょう]は晴[は]れです` → destination field will be set to "yes"
 
 ## Note Type Setup
 
-1. Open the Card Types window in Anki
-2. Add a field named `haskana` to your note type
-3. You can use this field in your card templates to:
-   - Show different cards based on whether kana annotations exist
-   - Create kanji-only versions of your cards
-   - Filter or sort your cards based on annotation presence 
+1. Make sure your note type has the configured destination field
+2. You can use this field to:
+   - Filter cards with/without ruby annotations in the browser
+   - Create conditional card templates, e.g. Only create cards to test pronounce recognition of words/sentences if they contain Kanji annotated with Kana.
+   - Can be combined with use of Japanese Support Add-on and include "Reading" (the default output field of Japanese Support Add-on) in the source fields configuration.
+
+## Installation
+
+1. Download the add-on from AnkiWeb
+2. Install it through Anki's add-on manager
+3. Restart Anki
+4. Configure the source and destination fields in the add-on configuration 
