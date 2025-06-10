@@ -1,18 +1,18 @@
 from typing import Sequence
 
+import anki
 from anki.collection import Collection, OpChanges
-from anki.notes import Note, NoteId
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.operations import CollectionOp
 from aqt.qt import QAction, qconnect
 from aqt.utils import showInfo
 
+from . import updatenote
 from .constant import ADDON_NAME
-from .updatenote import update_note
 
 
-def update_notes_op(col: Collection, notes: Sequence[Note]) -> OpChanges:
+def update_notes_op(col: Collection, notes: Sequence[anki.notes.Note]) -> OpChanges:
     """
     Update the given notes with undo entry.
     """
@@ -20,7 +20,7 @@ def update_notes_op(col: Collection, notes: Sequence[Note]) -> OpChanges:
     changed = []
 
     for note in notes:
-        if update_note(note):
+        if updatenote.update_note(note):
             changed.append(note)
 
     col.update_notes(changed)
@@ -28,7 +28,7 @@ def update_notes_op(col: Collection, notes: Sequence[Note]) -> OpChanges:
     return col.merge_undo_entries(pos)
 
 
-def bulk_update_notes(noteIds: Sequence[NoteId], parent: Browser) -> None:
+def bulk_update_notes(noteIds: Sequence[anki.notes.NoteId], parent: Browser) -> None:
     """
     Bulk update in background.
     """
@@ -52,5 +52,8 @@ def on_browser_menus_init(browser: Browser) -> None:
     qconnect(action.triggered, lambda: bulk_update_notes(browser.selectedNotes(), parent=browser))
     browser.form.menuEdit.addAction(action)
 
-# Register hanlder for browser menus init event
-gui_hooks.browser_menus_did_init.append(on_browser_menus_init)
+def hook_bulk_update() -> None:
+    """
+    Register hanlder for browser menus init event
+    """
+    gui_hooks.browser_menus_did_init.append(on_browser_menus_init)

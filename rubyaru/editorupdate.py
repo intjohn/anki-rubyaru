@@ -1,21 +1,23 @@
-from anki.notes import Note
+import anki
 from aqt import gui_hooks
 
-from .config import config
-from .updatenote import update_note
-
-source_fields = config.source_fields
+from . import config, updatenote
 
 
-def on_field_unfocus(flag: bool, note: Note, current_field_idx: int) -> bool:
+def on_field_unfocus(flag: bool, note: anki.notes.Note, current_field_idx: int) -> bool:
     """
     Handles the unfocus event for the given note and field index.
     Returns True if the destination field was updated, otherwise returns the original flag.
     """
+    source_fields = config.get_config().source_fields
+
     if note.keys()[current_field_idx] in source_fields:
-        return update_note(note) or flag
+        return updatenote.update_note(note) or flag
 
     return flag
 
-# Register hanlder for editor unfocus event
-gui_hooks.editor_did_unfocus_field.append(on_field_unfocus)
+def hook_editor_update() -> None:
+    """
+    Register hanlder for editor unfocus event
+    """
+    gui_hooks.editor_did_unfocus_field.append(on_field_unfocus)

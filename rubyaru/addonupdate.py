@@ -1,4 +1,4 @@
-from anki import hooks
+import anki
 from anki.collection import Collection
 from anki.notes import Note
 
@@ -11,5 +11,8 @@ def on_note_will_add(_col: Collection, note: Note, _deck_id: int) -> None:
     """
     update_note(note)
 
-# Register hanlder for note will add event
-hooks.note_will_be_added.append(on_note_will_add)
+def hook_addon_update() -> None:
+    """
+    Register hanlder for note will add event
+    """
+    anki.hooks.note_will_be_added.append(on_note_will_add)

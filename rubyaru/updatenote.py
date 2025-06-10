@@ -1,15 +1,13 @@
 import re
 
-from anki.notes import Note
+import anki
 
+from . import config
 from .constant import RUBY_ARU_VALUE
-from .config import config
 
 # Exactly the same regex as Anki's furigana field filter
 ANKI_FURIGANA_RE = r" ?([^ >]+?)\[(.+?)\]"
 
-source_fields = config.source_fields
-destination_field = config.destination_field
 
 def detect_anki_ruby_annotation(text: str) -> bool:
     """
@@ -18,11 +16,13 @@ def detect_anki_ruby_annotation(text: str) -> bool:
     return re.search(ANKI_FURIGANA_RE, text) is not None
 
 
-def update_note(note: Note) -> bool:
+def update_note(note: anki.notes.Note) -> bool:
     """
     Updates the destination field of the given note.
     Returns True if the destination field was updated, otherwise returns False.
     """
+    source_fields = config.get_config().source_fields
+    destination_field = config.get_config().destination_field
 
     if not destination_field or destination_field not in note:
         # destination field is not configured or not in the note, do nothing
